@@ -42,8 +42,9 @@ public class Hexagon : MonoBehaviour
         List<Hexagon> neighbors = new List<Hexagon>();
 
         // Define the offsets for the neighboring hexagons based on the grid layout
-        int[] dx = { 1, 1, 0, -1, -1, 0 };
+        int[] dx = { 1, 1, 0, -1, 0, -1 };
         int[] dy = { 0, 1, 1, 0, -1, -1 };
+
 
         // Iterate through the offsets and calculate the coordinates of the neighboring hexagons
         for (int i = 0; i < dx.Length; i++)
@@ -160,7 +161,7 @@ public class Hexagon : MonoBehaviour
                 SetColor(color);
                 IsCaptured = true;
             }
-            else
+            else if(grid.GetTrail(color).Count > 0)
             {
                 grid.FillTrailArea(color);
                 gameManager.UpdateScoreBoard();

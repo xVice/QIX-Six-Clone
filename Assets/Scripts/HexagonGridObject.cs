@@ -12,6 +12,7 @@ public class HexagonGridObject : MonoBehaviour
     public float verticalSpacing = 1.5f;
     public GameObject hexagonPrefab;
     public GameObject PlayerHolder;
+    private GameManager gameManager;
 
     public List<Hexagon> GridObjects = new List<Hexagon>();
 
@@ -20,7 +21,7 @@ public class HexagonGridObject : MonoBehaviour
 
     private void Awake()
     {
-
+        gameManager = FindObjectOfType<GameManager>();
     }
 
     /// <summary>
@@ -276,32 +277,84 @@ public class HexagonGridObject : MonoBehaviour
         return GridObjects.Where(x => x.GetColor() == color).ToList();
     }
 
-    //Extrem langsam, mögliche fixes die ich getestet habe:
+
     /// <summary>
     /// Fills the trailed of area.
     /// </summary>
     /// <param name="trailColor"></param>
     public void FillTrailArea(Color trailColor)
     {
-        var trailArea = GetTrailSquareArea(trailColor);
+        var area = GetArea(trailColor);
+        var areaFilled = GetFilledAreaFromArea(area, trailColor);
 
-        var subdividedarea = SubdivideTrailedArea(trailArea, 5);
-        foreach(var area in subdividedarea)
+        foreach (var hex in areaFilled)
         {
-            var centerHex = GetCenterHexagon(area);
-            var floodFilledArea = FloodFill(centerHex, trailColor, trailArea.Count());
-            if(floodFilledArea != null)
-            {
-                foreach(var hex in floodFilledArea)
-                {
-                    hex.SetColor(trailColor);
-                    hex.SetCaptured(true);
-                }
-                ClearTrail(trailColor);
-                return;
-            }
-            ClearTrail(trailColor);
+            hex.SetCaptured(true);
+            hex.SetColor(trailColor);
+
         }
+
+        ClearTrail(trailColor);
+    }
+
+    private void CenterCam(Color trailColor)
+    {
+        var area = GetArea(trailColor);
+        var centerHex = GetCenterHexagon(area);
+        var playerPos = gameManager.GetPlayer().transform.position;
+
+        var targetPosition = (centerHex.transform.position + playerPos) / 2f;
+
+        gameManager.ReSetupCam(targetPosition, area.Count);
+    }
+
+
+    private List<Hexagon> GetFilledAreaFromArea(List<Hexagon> area, Color trailColor)
+    {
+        List<Hexagon> hexes = new List<Hexagon>();
+
+        // Group the hexagons in the area by their y-coordinate
+        var groupedHexagons = area.GroupBy(hexagon => hexagon.GridCoordinates.y);
+
+        foreach (var group in groupedHexagons)
+        {
+            List<Hexagon> line = new List<Hexagon>();
+
+            // Sort the hexagons in the group based on their x-coordinate
+            var sortedHexagons = group.OrderBy(hexagon => hexagon.GridCoordinates.x);
+
+            // Find the leftmost and rightmost hexagons with the trail color
+            Hexagon leftmostHexagon = null;
+            Hexagon rightmostHexagon = null;
+
+            foreach (var hexagon in sortedHexagons)
+            {
+                if (hexagon.GetColor() == trailColor)
+                {
+                    if (leftmostHexagon == null || hexagon.GridCoordinates.x < leftmostHexagon.GridCoordinates.x)
+                    {
+                        leftmostHexagon = hexagon;
+                    }
+
+                    if (rightmostHexagon == null || hexagon.GridCoordinates.x > rightmostHexagon.GridCoordinates.x)
+                    {
+                        rightmostHexagon = hexagon;
+                    }
+                    for (int x = leftmostHexagon.GridCoordinates.x + 1; x < rightmostHexagon.GridCoordinates.x; x++)
+                    {
+                        Vector2Int coordinates = new Vector2Int(x, leftmostHexagon.GridCoordinates.y);
+                        Hexagon hex = GetHexagon(coordinates);
+                        hexes.Add(hex);
+                    }
+                }
+            }
+
+            hexes.Add(leftmostHexagon);
+            hexes.Add(rightmostHexagon);
+            
+        }
+
+        return hexes;
     }
 
     /// <summary>
@@ -334,33 +387,7 @@ public class HexagonGridObject : MonoBehaviour
 
         return centerHexagon;
     }
-
-
-    /// <summary>
-    /// "Slices" a area into a list of areas, each area will be sized according to cubeSize 
-    /// </summary>
-    /// <param name="area"></param>
-    /// <param name="cubeSize"></param>
-    /// <returns></returns>
-    public List<List<Hexagon>> SubdivideTrailedArea(List<Hexagon> area, int cubeSize)
-    {
-        List<List<Hexagon>> subdividedAreas = new List<List<Hexagon>>();
-
-        int areaSize = area.Count;
-        int numSubdivisions = Mathf.CeilToInt((float)areaSize / cubeSize);
-
-        for (int i = 0; i < numSubdivisions; i++)
-        {
-            int startIndex = i * cubeSize;
-            int endIndex = Mathf.Min(startIndex + cubeSize, areaSize);
-
-            List<Hexagon> subdividedArea = area.GetRange(startIndex, endIndex - startIndex);
-            subdividedAreas.Add(subdividedArea);
-        }
-
-        return subdividedAreas;
-    }
-
+  
     /// <summary>
     /// Gets a square area around a trail, used for breaking the floodfill early
     /// </summary>
@@ -398,52 +425,41 @@ public class HexagonGridObject : MonoBehaviour
         return squareArea;
     }
 
-    /// <summary>
-    /// A flood fill algorithm that exits when more then maxHexes get filled.
-    /// </summary>
-    /// <param name="startHex"></param>
-    /// <param name="outlineColor"></param>
-    /// <param name="maxHexes"></param>
-    /// <returns></returns>
-    public List<Hexagon> FloodFill(Hexagon startHex, Color outlineColor, int maxHexes)
+    public List<Hexagon> GetSquareArea(List<Hexagon> area)
     {
-        List<Hexagon> filledHexagons = new List<Hexagon>();
+        List<Hexagon> trail = area;
 
-        // Check if the startHex is already filled or has a different color
-        if (startHex == null)
-            return filledHexagons;
-
-        // Create a queue to store the hexagons to be processed
-        Queue<Hexagon> hexagonQueue = new Queue<Hexagon>();
-        hexagonQueue.Enqueue(startHex);
-
-        // Perform flood fill algorithm
-        while (hexagonQueue.Count > 0)
+        if (trail.Count == 0)
         {
-            Hexagon currentHex = hexagonQueue.Dequeue();
+            Debug.LogWarning("No hexagons found in the trail.");
+            return new List<Hexagon>();
+        }
 
+        int minX = trail.Min(hex => hex.GridCoordinates.x);
+        int maxX = trail.Max(hex => hex.GridCoordinates.x);
+        int minY = trail.Min(hex => hex.GridCoordinates.y);
+        int maxY = trail.Max(hex => hex.GridCoordinates.y);
 
+        List<Hexagon> squareArea = new List<Hexagon>();
 
-            // Check if the number of filled hexagons exceeds maxHexes
-            if (filledHexagons.Count >= maxHexes)
-                return null;
-
-            filledHexagons.Add(currentHex);
-
-            // Get the neighboring hexagons
-            List<Hexagon> neighbors = currentHex.GetNeighbors();
-
-            foreach (Hexagon neighbor in neighbors)
+        for (int x = minX; x <= maxX; x++)
+        {
+            for (int y = minY; y <= maxY; y++)
             {
-                if (neighbor.GetColor() != outlineColor && !filledHexagons.Contains(neighbor) && !hexagonQueue.Contains(neighbor))
+                Hexagon hexagon = GetHexagon(new Vector2Int(x, y));
+                if (hexagon != null)
                 {
-                    hexagonQueue.Enqueue(neighbor);
+                    squareArea.Add(hexagon);
                 }
             }
         }
 
-        return filledHexagons;
+        return squareArea;
     }
 
+    private void LateUpdate()
+    {
+        CenterCam(gameManager.GetPlayer().GetPreferences().TeamColor);
+    }
 
 }

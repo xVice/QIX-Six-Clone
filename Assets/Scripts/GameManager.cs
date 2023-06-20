@@ -22,6 +22,7 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     private TextMeshProUGUI ScoreboardText;
 
+    private Player Player;
 
 
     [SerializeField]
@@ -34,6 +35,31 @@ public class GameManager : MonoBehaviour
     public HexagonGridObject GetGrid()
     {
         return Grid;
+    }
+
+    public void ReSetupCam(Vector3 targetPosition, int size)
+    {
+        Transform targetTransform = new GameObject().transform;
+        targetTransform.position = targetPosition;
+
+        VCAM.LookAt = targetTransform;
+        VCAM.Follow = targetTransform;
+
+        // Calculate desired FOV based on list size
+        float desiredFOV = Mathf.Clamp(size * 10f, 20f, 60f); // Adjust the values as needed
+
+        // Apply the desired FOV to the camera
+        VCAM.m_Lens.FieldOfView = desiredFOV;
+
+        // Destroy the temporary targetTransform object
+        Destroy(targetTransform.gameObject);
+    }
+
+
+
+    public Player GetPlayer()
+    {
+        return Player;
     }
 
     /// <summary>
@@ -78,6 +104,7 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         var player = Grid.InitilzePrefabOnHexagonWithStartingArea(new Vector2Int(15, 15), PlayerPrefab, Color.yellow);
+        Player = player.GetComponent<Player>();
         VCAM.Follow = player.transform;
         VCAM.LookAt = player.transform;
 

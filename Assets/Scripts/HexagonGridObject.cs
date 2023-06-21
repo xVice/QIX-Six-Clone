@@ -203,29 +203,100 @@ public class HexagonGridObject : MonoBehaviour
     /// <param name="direction"></param>
     /// <param name="distance"></param>
     /// <returns></returns>
-    public Hexagon GetHexagonInDirection(Color areaColor, Vector2Int direction, int distance)
+    public Hexagon GetRandomHexagonInDirection(Color areaColor, Vector2Int direction, int distance)
     {
         List<Hexagon> area = GetArea(areaColor);
-        Hexagon targetHexagon = null;
-
-        switch (direction)
+        if (area.Count == 0)
         {
-            case Vector2Int right when right.x > 0: // Right direction
-                targetHexagon = area.FirstOrDefault(hex => hex.GridCoordinates.x > distance);
-                break;
-            case Vector2Int left when left.x < 0: // Left direction
-                targetHexagon = area.FirstOrDefault(hex => hex.GridCoordinates.x < -distance);
-                break;
-            case Vector2Int up when up.y > 0: // Up direction
-                targetHexagon = area.FirstOrDefault(hex => hex.GridCoordinates.y > distance);
-                break;
-            case Vector2Int down when down.y < 0: // Down direction
-                targetHexagon = area.FirstOrDefault(hex => hex.GridCoordinates.y < -distance);
-                break;
+            Debug.LogWarning("No hexagons found in the specified area color.");
+            return null;
         }
 
-        return targetHexagon;
+        List<Hexagon> hexagonsInDirection = area.Where(hexagon => IsHexagonInDirection(hexagon, direction, distance)).ToList();
+        if (hexagonsInDirection.Count == 0)
+        {
+            Debug.LogWarning("No hexagons found in the specified direction.");
+            return null;
+        }
+
+        Hexagon resultHexagon = hexagonsInDirection[0];
+        foreach (var hexagon in hexagonsInDirection)
+        {
+            if (IsHexagonCloserToOrigin(hexagon, resultHexagon, direction))
+            {
+                resultHexagon = hexagon;
+            }
+        }
+
+        return resultHexagon;
     }
+
+    private bool IsHexagonInDirection(Hexagon hexagon, Vector2Int direction, int distance)
+    {
+        Hexagon currentHexagon = hexagon;
+        for (int i = 0; i < distance; i++)
+        {
+            Vector2Int nextCoordinates = currentHexagon.GridCoordinates + direction;
+            currentHexagon = GetHexagon(nextCoordinates);
+            if (currentHexagon == null || currentHexagon.GetColor() != hexagon.GetColor())
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool IsHexagonCloserToOrigin(Hexagon hexagon1, Hexagon hexagon2, Vector2Int direction)
+    {
+        Vector2Int hexagon1Coordinates = hexagon1.GridCoordinates;
+        Vector2Int hexagon2Coordinates = hexagon2.GridCoordinates;
+
+        if (direction.x > 0 && hexagon1Coordinates.x > hexagon2Coordinates.x)
+        {
+            return true;
+        }
+        if (direction.x < 0 && hexagon1Coordinates.x < hexagon2Coordinates.x)
+        {
+            return true;
+        }
+        if (direction.y > 0 && hexagon1Coordinates.y > hexagon2Coordinates.y)
+        {
+            return true;
+        }
+        if (direction.y < 0 && hexagon1Coordinates.y < hexagon2Coordinates.y)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private Vector2Int GetDirectionOffset(Direction direction)
+    {
+        switch (direction)
+        {
+            case Direction.Left:
+                return new Vector2Int(-1, 0);
+            case Direction.Right:
+                return new Vector2Int(1, 0);
+            case Direction.Up:
+                return new Vector2Int(0, 1);
+            case Direction.Down:
+                return new Vector2Int(0, -1);
+            default:
+                return Vector2Int.zero;
+        }
+    }
+
+    public enum Direction
+    {
+        Left,
+        Right,
+        Up,
+        Down
+    }
+
 
     //remake to use struct, for more indepth scoreboard display.
     /// <summary>

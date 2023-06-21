@@ -141,7 +141,61 @@ public class HexagonGridObject : MonoBehaviour
             }
         }
     }
+    public Vector2Int GenerateRandomDirection(Color color, out Vector2Int direction, int minDistance, int maxDistance)
+    {
+        List<Hexagon> area = GetArea(color);
 
+        if (area.Count == 0)
+        {
+            direction = Vector2Int.zero;
+            return Vector2Int.zero;
+        }
+
+        // Choose a random hexagon from the area
+        Hexagon randomHexagon = area[Random.Range(0, area.Count)];
+
+        // Generate a random direction
+        Vector2Int randomDirection = RandomDirection();
+
+        // Generate a random distance within the given range
+        int randomDistance = Random.Range(minDistance, maxDistance);
+
+        // Calculate the target position based on the random direction and distance
+        Vector2Int targetPosition = randomHexagon.GridCoordinates + randomDirection * randomDistance;
+
+        // Get the closest hexagon to the target position
+        Hexagon closestHexagon = GetRandomHexagonInDirection(color, randomDirection, randomDistance);
+
+        if (closestHexagon != null)
+        {
+            direction = randomDirection;
+            return closestHexagon.GridCoordinates;
+        }
+        else
+        {
+            direction = Vector2Int.zero;
+            return Vector2Int.zero;
+        }
+    }
+
+    private Vector2Int RandomDirection()
+    {
+        int randomIndex = Random.Range(0, 4);
+
+        switch (randomIndex)
+        {
+            case 0:
+                return new Vector2Int(1, 0);  // Right
+            case 1:
+                return new Vector2Int(-1, 0); // Left
+            case 2:
+                return new Vector2Int(0, 1);  // Up
+            case 3:
+                return new Vector2Int(0, -1); // Down
+            default:
+                return Vector2Int.zero;
+        }
+    }
     /// <summary>
     /// Untested: Gets a hexagon in the direction from the area of color with the given distance.
     /// </summary>
@@ -149,34 +203,28 @@ public class HexagonGridObject : MonoBehaviour
     /// <param name="direction"></param>
     /// <param name="distance"></param>
     /// <returns></returns>
-    public Hexagon GetHexagonInDirectionWithDistance(Color color, Vector2 direction, float distance)
+    public Hexagon GetHexagonInDirection(Color areaColor, Vector2Int direction, int distance)
     {
-        var area = GetArea(color);
-        var centerHex = GetCenterHexagon(area);
+        List<Hexagon> area = GetArea(areaColor);
+        Hexagon targetHexagon = null;
 
-        if (area == null || centerHex == null)
+        switch (direction)
         {
-            // Handle cases where area or centerHex are null
-            return null;
+            case Vector2Int right when right.x > 0: // Right direction
+                targetHexagon = area.FirstOrDefault(hex => hex.GridCoordinates.x > distance);
+                break;
+            case Vector2Int left when left.x < 0: // Left direction
+                targetHexagon = area.FirstOrDefault(hex => hex.GridCoordinates.x < -distance);
+                break;
+            case Vector2Int up when up.y > 0: // Up direction
+                targetHexagon = area.FirstOrDefault(hex => hex.GridCoordinates.y > distance);
+                break;
+            case Vector2Int down when down.y < 0: // Down direction
+                targetHexagon = area.FirstOrDefault(hex => hex.GridCoordinates.y < -distance);
+                break;
         }
 
-        Vector2 targetPosition = centerHex.GridCoordinates + (direction * distance);
-
-        Hexagon closestHexagon = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (var hexagon in area)
-        {
-            float distanceToTarget = Vector2.Distance(hexagon.GridCoordinates, targetPosition);
-
-            if (distanceToTarget < closestDistance)
-            {
-                closestDistance = distanceToTarget;
-                closestHexagon = hexagon;
-            }
-        }
-
-        return closestHexagon;
+        return targetHexagon;
     }
 
     //remake to use struct, for more indepth scoreboard display.
@@ -357,6 +405,28 @@ public class HexagonGridObject : MonoBehaviour
         return hexes;
     }
 
+    public Hexagon GetClosestHexagonOfColor(Hexagon start, Color targetColor)
+    {
+        Hexagon closestHexagon = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (Hexagon hexagon in GridObjects)
+        {
+            if (hexagon.GetColor() == targetColor)
+            {
+                float distance = Vector2.Distance(start.transform.position, hexagon.transform.position);
+                if (distance < closestDistance)
+                {
+                    closestHexagon = hexagon;
+                    closestDistance = distance;
+                }
+            }
+        }
+
+        return closestHexagon;
+    }
+
+
     /// <summary>
     /// Gets the center hexagon from a List of hexagons.
     /// </summary>
@@ -459,7 +529,7 @@ public class HexagonGridObject : MonoBehaviour
 
     private void LateUpdate()
     {
-        CenterCam(gameManager.GetPlayer().GetPreferences().TeamColor);
+        //CenterCam(gameManager.GetPlayer().GetPreferences().TeamColor);
     }
 
 }

@@ -12,28 +12,37 @@ public class AIPlayer : MonoBehaviour
     public float GizmoSize = 0.2f;
     public Color GizmoColor = Color.red;
 
-    private List<Vector2> trailPoints;
     private Vector2 initialPosition;
     private Vector2 direction;
-    private int turnCount = 0;
     private float currentTick = 0f;
     private float targetTicks = 25f;
 
-    private bool shouldTurnRight; // Flag to determine whether to turn right or left
+    private AIData aiData;
+
+    private Hexagon targetHex;
+
+    private Hexagon CurrentHexagon;
+
 
     private void Awake()
     {
+        aiData = GetComponent<AIData>();
         gameManager = FindObjectOfType<GameManager>();
         grid = gameManager.GetGrid();
         rb = GetComponent<Rigidbody2D>(); // Get the reference to the Rigidbody2D component
+    }
+
+    public void SetCurrentHexagon(Hexagon hex)
+    {
+        CurrentHexagon = hex;
     }
 
     // Start is called before the first frame update
     void Start()
     {
         initialPosition = transform.position;
-        trailPoints = new List<Vector2>();
-        GenerateRandomDirection();
+
+        GenerateRandomTargetPoint();
         MoveInDirection();
     }
 
@@ -41,11 +50,9 @@ public class AIPlayer : MonoBehaviour
     void Update()
     {
         currentTick += Time.deltaTime;
-        if (currentTick >= targetTicks)
+        if(CurrentHexagon == targetHex)
         {
-            currentTick = 0;
-            GenerateRandomDirection();
-            MoveInDirection();
+            ReturnToInitialPosition();
         }
     }
 
@@ -54,31 +61,22 @@ public class AIPlayer : MonoBehaviour
         rb.velocity = direction * MoveSpeed;
     }
 
-    private void GenerateRandomDirection()
+    private void GenerateRandomTargetPoint()
     {
-        float turnAngle = 45f;
-        if (turnCount >= 3)
-        {
-            ReturnToInitialPosition();
-            return;
-        }
+        Vector2Int randomDirection;
+        Vector2Int randomTargetPosition = grid.GenerateRandomDirection(aiData.TeamColor, out randomDirection, 1, 5);
+        targetHex = grid.GetHexagon(randomTargetPosition);
+        targetHex.SetColor(Color.cyan);
 
-        shouldTurnRight = Random.value < 0.5f; // Randomly choose whether to turn right or left
-
-        if (shouldTurnRight)
-            direction = Quaternion.Euler(0f, 0f, turnAngle) * direction;
-        else
-            direction = Quaternion.Euler(0f, 0f, -turnAngle) * direction;
-
-        turnCount++;
+        // Set the direction based on the generated random direction
+        direction = randomDirection;
     }
+
 
     private void ReturnToInitialPosition()
     {
         rb.velocity = Vector2.zero;
-        transform.position = initialPosition;
-        trailPoints.Clear();
-        turnCount = 0;
+        direction = grid.GetClosestHexagonOfColor(targetHex, aiData.TeamColor).GridCoordinates;
     }
 
     private bool IsOutOfBounds()

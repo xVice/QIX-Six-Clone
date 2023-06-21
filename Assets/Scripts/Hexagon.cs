@@ -96,8 +96,9 @@ public class Hexagon : MonoBehaviour
     IEnumerator CollisionCoroutineAI(Collider2D collision)
     {
         var ai = collision.gameObject.GetComponent<AIPlayer>();
-        var color = ai.GetComponent<PlayerData>().TeamColor;
+        var color = ai.GetComponent<AIData>().TeamColor;
         var list = grid.GetTrail(color);
+        ai.SetCurrentHexagon(this);
 
         if (grid.IsHexagonInAnyTrail(this))
         {

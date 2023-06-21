@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
-public class PlayerData : MonoBehaviour
+public class AIData : MonoBehaviour
 {
     public string Username = "QIX-Player";
     public Color TeamColor = Color.yellow;
